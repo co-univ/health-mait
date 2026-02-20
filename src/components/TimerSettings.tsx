@@ -9,30 +9,13 @@ interface TimerSettingsProps {
   disabled: boolean;
 }
 
-function formatTimeDisplay(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${seconds}`;
-}
+const inputClass =
+  "h-12 w-14 rounded-xl bg-zinc-800 text-center font-mono text-lg tabular-nums text-zinc-100 outline-none focus:ring-2 focus:ring-lime-400/60 disabled:opacity-50";
+const btnClass =
+  "flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-800 disabled:hover:text-zinc-400";
 
-function parseTimeInput(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  if (trimmed.includes(":")) {
-    const [mStr, sStr] = trimmed.split(":");
-    const m = parseInt(mStr, 10);
-    const s = parseInt(sStr || "0", 10);
-    if (isNaN(m) || isNaN(s)) return null;
-    return m * 60 + s;
-  }
-
-  const n = parseInt(trimmed, 10);
-  if (isNaN(n)) return null;
-  return n;
+function clamp(val: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, val));
 }
 
 function TimeInput({
@@ -40,40 +23,46 @@ function TimeInput({
   value,
   onChange,
   disabled,
-  min = 1,
-  max = 3600,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   disabled: boolean;
-  min?: number;
-  max?: number;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const mins = Math.floor(value / 60);
+  const secs = value % 60;
 
-  const startEditing = () => {
-    if (disabled) return;
-    setDraft(String(value));
-    setEditing(true);
+  const [draftMin, setDraftMin] = useState<string | null>(null);
+  const [draftSec, setDraftSec] = useState<string | null>(null);
+
+  const commitMin = () => {
+    if (draftMin === null) return;
+    const n = parseInt(draftMin, 10);
+    setDraftMin(null);
+    if (isNaN(n)) return;
+    const newTotal = clamp(n, 0, 59) * 60 + secs;
+    onChange(Math.max(1, Math.min(3600, newTotal)));
   };
 
-  const commitEdit = () => {
-    setEditing(false);
-    const parsed = parseTimeInput(draft);
-    if (parsed !== null) {
-      onChange(Math.max(min, Math.min(max, parsed)));
+  const commitSec = () => {
+    if (draftSec === null) return;
+    const n = parseInt(draftSec, 10);
+    setDraftSec(null);
+    if (isNaN(n)) return;
+    const newTotal = mins * 60 + clamp(n, 0, 59);
+    onChange(Math.max(1, Math.min(3600, newTotal)));
+  };
+
+  const handleKeyDown = (commit: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") commit();
+    else if (e.key === "Escape") {
+      setDraftMin(null);
+      setDraftSec(null);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      commitEdit();
-    } else if (e.key === "Escape") {
-      setEditing(false);
-    }
-  };
+  const decrement = () => onChange(Math.max(1, value - (value > 60 ? 30 : 5)));
+  const increment = () => onChange(Math.min(3600, value + (value >= 60 ? 30 : 5)));
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -81,49 +70,47 @@ function TimeInput({
         {label}
       </label>
       <div className="flex items-center gap-1">
-        <button
-          onClick={() => onChange(Math.max(min, value - (value > 60 ? 30 : 5)))}
-          disabled={disabled || value <= min}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-800 disabled:hover:text-zinc-400"
-          aria-label="감소"
-        >
+        <button onClick={decrement} disabled={disabled || value <= 1} className={btnClass} aria-label="감소">
           −
         </button>
 
-        {editing ? (
+        <div className="flex items-center gap-1">
           <input
             type="text"
             inputMode="numeric"
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={handleKeyDown}
-            placeholder="초 또는 분:초"
-            className="h-12 w-[80px] rounded-xl bg-zinc-800 px-3 text-center font-mono text-lg tabular-nums text-zinc-100 outline-none ring-2 ring-lime-400/60"
-          />
-        ) : (
-          <button
-            onClick={startEditing}
             disabled={disabled}
-            className={`flex h-12 min-w-[80px] cursor-text items-center justify-center rounded-xl bg-zinc-800/50 px-3 font-mono text-lg tabular-nums transition-colors hover:bg-zinc-700/50 hover:ring-1 hover:ring-zinc-600 ${disabled ? "pointer-events-none opacity-50" : "text-zinc-100"}`}
-          >
-            {formatTimeDisplay(value)}
-          </button>
-        )}
+            value={draftMin !== null ? draftMin : String(mins)}
+            onFocus={() => setDraftMin(String(mins))}
+            onChange={(e) => setDraftMin(e.target.value)}
+            onBlur={commitMin}
+            onKeyDown={handleKeyDown(commitMin)}
+            className={inputClass}
+            aria-label={`${label} 분`}
+          />
+          <span className="text-lg font-bold text-zinc-500">:</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            disabled={disabled}
+            value={
+              draftSec !== null
+                ? draftSec
+                : String(secs).padStart(2, "0")
+            }
+            onFocus={() => setDraftSec(String(secs))}
+            onChange={(e) => setDraftSec(e.target.value)}
+            onBlur={commitSec}
+            onKeyDown={handleKeyDown(commitSec)}
+            className={inputClass}
+            aria-label={`${label} 초`}
+          />
+        </div>
 
-        <button
-          onClick={() => onChange(Math.min(max, value + (value >= 60 ? 30 : 5)))}
-          disabled={disabled || value >= max}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-800 disabled:hover:text-zinc-400"
-          aria-label="증가"
-        >
+        <button onClick={increment} disabled={disabled || value >= 3600} className={btnClass} aria-label="증가">
           +
         </button>
       </div>
-      <span className="text-[10px] text-zinc-600">
-        클릭하여 직접 입력 (초 또는 분:초)
-      </span>
+      <span className="text-[10px] text-zinc-600">분 : 초</span>
     </div>
   );
 }
@@ -137,29 +124,18 @@ function SetsInput({
   onChange: (v: number) => void;
   disabled: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState<string | null>(null);
 
-  const startEditing = () => {
-    if (disabled) return;
-    setDraft(String(value));
-    setEditing(true);
-  };
-
-  const commitEdit = () => {
-    setEditing(false);
+  const commit = () => {
+    if (draft === null) return;
     const n = parseInt(draft, 10);
-    if (!isNaN(n)) {
-      onChange(Math.max(1, Math.min(99, n)));
-    }
+    setDraft(null);
+    if (!isNaN(n)) onChange(clamp(n, 1, 99));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      commitEdit();
-    } else if (e.key === "Escape") {
-      setEditing(false);
-    }
+    if (e.key === "Enter") commit();
+    else if (e.key === "Escape") setDraft(null);
   };
 
   return (
@@ -171,44 +147,35 @@ function SetsInput({
         <button
           onClick={() => onChange(Math.max(1, value - 1))}
           disabled={disabled || value <= 1}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-800 disabled:hover:text-zinc-400"
+          className={btnClass}
           aria-label="감소"
         >
           −
         </button>
 
-        {editing ? (
-          <input
-            type="text"
-            inputMode="numeric"
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={handleKeyDown}
-            placeholder="세트"
-            className="h-12 w-[80px] rounded-xl bg-zinc-800 px-3 text-center font-mono text-lg tabular-nums text-zinc-100 outline-none ring-2 ring-lime-400/60"
-          />
-        ) : (
-          <button
-            onClick={startEditing}
-            disabled={disabled}
-            className={`flex h-12 min-w-[80px] cursor-text items-center justify-center rounded-xl bg-zinc-800/50 px-3 font-mono text-lg tabular-nums transition-colors hover:bg-zinc-700/50 hover:ring-1 hover:ring-zinc-600 ${disabled ? "pointer-events-none opacity-50" : "text-zinc-100"}`}
-          >
-            {value}세트
-          </button>
-        )}
+        <input
+          type="text"
+          inputMode="numeric"
+          disabled={disabled}
+          value={draft !== null ? draft : String(value)}
+          onFocus={() => setDraft(String(value))}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          className={inputClass}
+          aria-label="세트 수"
+        />
 
         <button
           onClick={() => onChange(Math.min(99, value + 1))}
           disabled={disabled || value >= 99}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-800 disabled:hover:text-zinc-400"
+          className={btnClass}
           aria-label="증가"
         >
           +
         </button>
       </div>
-      <span className="text-[10px] text-zinc-600">클릭하여 직접 입력</span>
+      <span className="text-[10px] text-zinc-600">&nbsp;</span>
     </div>
   );
 }
