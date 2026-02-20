@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 const SITE_NAME = "운동 메이트";
 const SITE_DESCRIPTION =
   "세트 기반 운동 타이머 — 운동 시간, 휴식 시간, 세트 수를 자유롭게 설정하고 소리 알림으로 운동에만 집중하세요.";
-const OG_IMAGE_URL = "https://og-image-placeholder.example.com/og.png";
+const OG_IMAGE_URL =
+  "https://health-mait.s3.ap-northeast-2.amazonaws.com/og-image.svg";
 
 export const metadata: Metadata = {
   title: {
@@ -58,7 +59,9 @@ export const metadata: Metadata = {
     images: [OG_IMAGE_URL],
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
 };
 
