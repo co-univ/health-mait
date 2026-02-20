@@ -84,6 +84,6 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
-              -p 3080:3000 \
+              -p 33333:3000 \
               ${{ env.IMAGE_NAME }}:latest
             docker image prune -f
