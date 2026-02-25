@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TimerConfig, TimerPhase } from "@/types/timer";
 import { useTimer } from "@/hooks/useTimer";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import TimerDisplay from "@/components/TimerDisplay";
 import TimerControls from "@/components/TimerControls";
 import TimerSettings from "@/components/TimerSettings";
@@ -17,8 +18,17 @@ const DEFAULT_CONFIG: TimerConfig = {
 export default function Home() {
   const [config, setConfig] = useState<TimerConfig>(DEFAULT_CONFIG);
   const { state, progress, toggle, reset } = useTimer(config);
+  const wakeLock = useWakeLock();
 
   const isActive = state.phase !== TimerPhase.IDLE;
+
+  useEffect(() => {
+    if (state.isRunning) {
+      wakeLock.request();
+    } else {
+      wakeLock.release();
+    }
+  }, [state.isRunning, wakeLock]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
